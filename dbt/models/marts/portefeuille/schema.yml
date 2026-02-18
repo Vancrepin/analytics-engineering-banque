@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: fct_performance_contrats
+    description: "Performance détaillée de chaque contrat"
+    columns:
+      - name: performance_key
+        description: "Clé unique"
+        tests:
+          - unique
+          - not_null
+      
+      - name: ratio_sinistres_primes
+        description: "Ratio S/P en pourcentage"
+  
+  - name: fct_sinistralite
+    description: "Sinistralité agrégée par produit et segment"
+    columns:
+      - name: sinistralite_key
+        tests:
+          - unique
+          - not_null
+  
+  - name: fct_kpis_portefeuille
+    description: "KPIs globaux du portefeuille"

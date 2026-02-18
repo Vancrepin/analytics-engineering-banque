@@ -1,0 +1,16 @@
+banking_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      # Depuis Docker, on utilise le nom du service (postgres) au lieu de localhost
+      host: postgres
+      user: analytics_user
+      password: analytics_password
+      port: 5433
+      dbname: analytics_warehouse
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
+      connect_timeout: 10
+      search_path: "analytics,staging,intermediate,marts,raw,public"

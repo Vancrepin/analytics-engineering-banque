@@ -1,0 +1,176 @@
+# Définition des volumes persistants (données qui survivent aux redémarrages)
+volumes:
+  postgres_data:      # Données PostgreSQL
+  airflow_logs:       # Logs Airflow
+  metabase_data:      # Configuration Metabase
+
+# Définition du réseau pour que tous les conteneurs communiquent
+networks:
+  analytics_network:
+    driver: bridge
+
+services:
+  # ==========================================
+  # SERVICE 1 : PostgreSQL - Notre Data Warehouse
+  # ==========================================
+  postgres:
+    image: postgres:15-alpine  # Version légère pour économiser la RAM
+    container_name: analytics_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Configuration optimisée pour 8GB RAM
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    volumes:
+      # Persistence des données
+      - postgres_data:/var/lib/postgresql/data
+      # Scripts d'initialisation (on va les créer)
+      - ./postgres/init:/docker-entrypoint-initdb.d
+      - ./data:/data:ro
+    ports:
+      - "${POSTGRES_PORT}:5432"  # Accès depuis votre machine
+    networks:
+      - analytics_network
+    healthcheck:  # Vérifie que PostgreSQL est prêt
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Limite de ressources pour ne pas saturer votre RAM
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # ==========================================
+  # SERVICE 2 : Airflow Webserver
+  # ==========================================
+  airflow-webserver:
+    image: apache/airflow:2.8.1-python3.11
+    container_name: analytics_airflow_webserver
+    user: "${AIRFLOW_UID}:0"
+    depends_on:
+      postgres:
+        condition: service_healthy  # Attend que PostgreSQL soit prêt
+    environment:
+      # Variables d'environnement Airflow depuis .env
+    
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR}
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES}
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "300"
+      AIRFLOW__WEBSERVER__WORKERS: "1"
+      AIRFLOW__WEBSERVER__WEB_SERVER_MASTER_TIMEOUT: "300"
+      AIRFLOW__WEBSERVER__WEB_SERVER_WORKER_TIMEOUT: "300"
+
+      
+
+    volumes:
+      # Montage des dossiers locaux dans le conteneur
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/requirements.txt:/opt/airflow/requirements.txt:ro
+      - airflow_logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./dbt:/opt/airflow/dbt  # dbt sera accessible depuis Airflow
+      - ./data:/opt/airflow/data
+    ports:
+      - "8080:8080"  # Interface web Airflow
+    networks:
+      - analytics_network
+    command: >
+       bash -lc "python -m pip install --user -r /opt/airflow/requirements.txt && airflow db migrate && exec airflow webserver"
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1',8080)); s.close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # ==========================================
+  # SERVICE 3 : Airflow Scheduler
+  # ==========================================
+  airflow-scheduler:
+    image: apache/airflow:2.8.1-python3.11
+    container_name: analytics_airflow_scheduler
+    user: "${AIRFLOW_UID}:0"
+    depends_on:
+      airflow-webserver:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/requirements.txt:/opt/airflow/requirements.txt:ro
+      - airflow_logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./dbt:/opt/airflow/dbt
+      - ./data:/opt/airflow/data
+    networks:
+      - analytics_network
+    command: > 
+      bash -lc "python -m pip install --user -r /opt/airflow/requirements.txt && exec airflow scheduler"
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # ==========================================
+  # SERVICE 4 : Metabase - Visualisation
+  # ==========================================
+  metabase:
+    image: metabase/metabase:v0.48.5
+    container_name: analytics_metabase
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${POSTGRES_DB}  
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_HOST: postgres
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m"
+
+    volumes:
+      - metabase_data:/metabase-data
+    ports:
+      - "3000:3000"  # Interface web Metabase
+    networks:
+      - analytics_network
+    healthcheck:
+      test: curl --fail -I http://localhost:3000/api/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+        reservations:
+          memory: 512M

@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: fct_anomalies_transactions
+    description: "Transactions suspectes détectées avec score d'anomalie"
+    columns:
+      - name: anomalie_key
+        description: "Clé unique de l'anomalie"
+        tests:
+          - unique
+          - not_null
+      
+      - name: score_anomalie
+        description: "Score d'anomalie (0-100)"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      
+      - name: niveau_severite
+        description: "Niveau de sévérité de l'anomalie"
+        tests:
+          - accepted_values:
+              values: ['Normal', 'Faible', 'Moyen', 'Eleve', 'Critique']

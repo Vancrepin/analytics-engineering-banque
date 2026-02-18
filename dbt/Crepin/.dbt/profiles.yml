@@ -1,0 +1,25 @@
+banking_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: analytics_user
+      password: analytics_password
+      port: 5433
+      dbname: analytics_warehouse
+      schema: analytics  # Schema par défaut pour dbt
+      threads: 4
+      keepalives_idle: 0
+      connect_timeout: 10
+      search_path: "analytics,staging,intermediate,marts,raw,public"
+    
+    prod:
+      type: postgres
+      host: localhost
+      user: analytics_user
+      password: analytics_password
+      port: 5433
+      dbname: analytics_warehouse
+      schema: analytics_prod
+      threads: 4

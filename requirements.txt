@@ -1,0 +1,10 @@
+# Génération de données
+faker==22.6.0
+
+# Connexion PostgreSQL
+psycopg==3.2.1
+sqlalchemy==2.0.25
+
+# Utilitaires
+python-dotenv==1.0.0
+tqdm==4.66.1

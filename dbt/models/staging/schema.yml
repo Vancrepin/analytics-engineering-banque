@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: stg_clients
+    description: "Clients nettoyés et standardisés avec métriques calculées"
+    columns:
+      - name: client_key
+        description: "Clé surrogate unique du client"
+        tests:
+          - unique
+          - not_null
+      
+      - name: client_id
+        description: "Identifiant métier du client"
+        tests:
+          - unique
+          - not_null
+      
+      - name: age
+        description: "Âge du client en années"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 16
+              max_value: 120
+      
+      - name: score_credit_categorie
+        description: "Catégorie de score crédit"
+        tests:
+          - accepted_values:
+              values: ['Excellent', 'Bon', 'Moyen', 'Faible']
+
+  - name: stg_transactions
+    description: "Transactions standardisées avec indicateurs temporels"
+    columns:
+      - name: transaction_key
+        description: "Clé surrogate unique de la transaction"
+        tests:
+          - unique
+          - not_null
+      
+      - name: montant_eur
+        description: "Montant en EUR"
+        tests:
+          - not_null
+      
+      - name: type_transaction_std
+        description: "Type de transaction standardisé"
+        tests:
+          - accepted_values:
+              values: ['Virement', 'Prélèvement', 'Carte', 'Chèque', 'Espèces', 'Autre']
+
+  - name: stg_contrats
+    description: "Contrats d'assurance avec calculs de durée"
+    columns:
+      - name: contrat_key
+        description: "Clé surrogate unique du contrat"
+        tests:
+          - unique
+          - not_null
+      
+      - name: prime_mensuelle
+        description: "Prime mensuelle en EUR"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: false
+
+  - name: stg_sinistres
+    description: "Sinistres avec ratios d'indemnisation"
+    columns:
+      - name: sinistre_key
+        description: "Clé surrogate unique du sinistre"
+        tests:
+          - unique
+          - not_null
+      
+      - name: taux_indemnisation_pct
+        description: "Taux d'indemnisation en pourcentage"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: stg_primes
+    description: "Primes avec statuts de paiement"
+    columns:
+      - name: prime_key
+        description: "Clé surrogate unique de la prime"
+        tests:
+          - unique
+          - not_null

@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: fct_churn_predictions
+    description: "Prédictions de risque de churn avec recommandations"
+    columns:
+      - name: prediction_key
+        description: "Clé unique de la prédiction"
+        tests:
+          - unique
+          - not_null
+      
+      - name: score_churn
+        description: "Score de risque de churn (0-100)"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      
+      - name: segment_risque
+        description: "Segment de risque"
+        tests:
+          - accepted_values:
+              values: ['Faible', 'Moyen', 'Eleve', 'Critique']

@@ -1,0 +1,89 @@
+# Configuration du projet dbt
+name: 'banking_analytics'
+version: '1.0.0'
+config-version: 2
+
+# Profil à utiliser (doit correspondre au nom dans profiles.yml)
+profile: 'banking_analytics'
+
+# Dossiers du projet
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+# Dossiers de sortie
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Configuration des modèles
+models:
+  banking_analytics:
+    # Configuration par défaut pour tous les modèles
+    +materialized: view
+    +persist_docs:
+      relation: true
+      columns: true
+    
+    # STAGING : vues simples
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ['staging']
+    
+    # INTERMEDIATE : vues ou tables selon la taille
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+      +tags: ['intermediate']
+    
+    # MARTS : tables matérialisées pour la performance
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ['marts']
+      
+      # Sous-dossiers marts avec schémas dédiés
+      anomalies:
+        +schema: marts
+        +tags: ['marts', 'anomalies']
+      
+      churn:
+        +schema: marts
+        +tags: ['marts', 'churn']
+      
+      portefeuille:
+        +schema: marts
+        +tags: ['marts', 'portefeuille']
+
+# Configuration des seeds (fichiers CSV de référence)
+seeds:
+  banking_analytics:
+    +schema: seeds
+    +quote_columns: false
+
+# Configuration des tests
+tests:
+  banking_analytics:
+    +store_failures: true
+    +schema: test_failures
+
+# Variables globales
+vars:
+  # Dates de référence pour les calculs
+  current_date: '2024-12-31'
+  
+  # Seuils de détection d'anomalies
+  anomaly_z_score_threshold: 3
+  anomaly_frequency_threshold: 5
+  
+  # Seuils churn
+  churn_inactivity_days: 90
+  churn_risk_threshold: 0.7
+
+# Documentation
+require-dbt-version: [">=1.7.0", "<2.0.0"]

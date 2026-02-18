@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: int_client_activity
+    description: "Vue consolidée de l'activité client (transactions, contrats, sinistres)"
+    columns:
+      - name: client_key
+        description: "Clé unique du client"
+        tests:
+          - unique
+          - not_null
+      
+      - name: statut_engagement
+        description: "Niveau d'engagement (Actif, Modéré, Dormant)"
+        tests:
+          - accepted_values:
+              values: ['Actif', 'Modere', 'Dormant']
+      
+      - name: ltv_estimee_3ans
+        description: "Life Time Value estimée sur 3 ans"
+
+  - name: int_transaction_features
+    description: "Features calculées pour la détection d'anomalies"
+    columns:
+      - name: transaction_key
+        description: "Clé unique de la transaction"
+        tests:
+          - unique
+          - not_null
+      
+      - name: z_score_montant
+        description: "Z-score du montant (écart à la moyenne en nb d'écart-types)"
+      
+      - name: ratio_vs_moyenne_client
+        description: "Ratio du montant vs la moyenne du client sur 30j"
+
+  - name: int_contrat_performance
+    description: "Performance et rentabilité des contrats"
+    columns:
+      - name: contrat_key
+        description: "Clé unique du contrat"
+        tests:
+          - unique
+          - not_null
+      
+      - name: ratio_sp_pct
+        description: "Ratio Sinistres/Primes en pourcentage (KPI clé)"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      
+      - name: statut_rentabilite
+        description: "Classification de rentabilité"
+        tests:
+          - accepted_values:
+              values: ['Tres_Profitable', 'Profitable', 'Equilibre', 'Deficitaire']

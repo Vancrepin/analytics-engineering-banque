@@ -1,0 +1,120 @@
+version: 2
+
+# Définition des sources (tables RAW)
+sources:
+  - name: raw
+    description: "Données brutes chargées depuis les systèmes sources"
+    database: analytics_warehouse
+    schema: raw
+    
+    # Configuration de la fraîcheur des données
+    freshness:
+      warn_after: {count: 12, period: hour}
+      error_after: {count: 24, period: hour}
+    
+    # Tables sources
+    tables:
+      - name: clients
+        description: "Données clients (KYC)"
+        columns:
+          - name: client_id
+            description: "Identifiant unique du client"
+            tests:
+              - unique
+              - not_null
+          - name: email
+            description: "Email du client"
+            tests:
+              - not_null
+          - name: segment_client
+            description: "Segment marketing du client"
+          - name: score_credit
+            description: "Score de crédit (300-850)"
+      
+      - name: transactions
+        description: "Transactions bancaires"
+        columns:
+          - name: transaction_id
+            description: "Identifiant unique de la transaction"
+            tests:
+              - unique
+              - not_null
+          - name: client_id
+            description: "Référence au client"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'clients')
+                  field: client_id
+          - name: montant
+            description: "Montant de la transaction en EUR"
+            tests:
+              - not_null
+          - name: date_transaction
+            description: "Date de la transaction"
+            tests:
+              - not_null
+      
+      - name: contrats
+        description: "Contrats d'assurance"
+        columns:
+          - name: contrat_id
+            description: "Identifiant unique du contrat"
+            tests:
+              - unique
+              - not_null
+          - name: client_id
+            description: "Référence au client"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'clients')
+                  field: client_id
+          - name: type_produit
+            description: "Type de produit (Auto, Habitation, etc.)"
+            tests:
+              - accepted_values:
+                  values: ['Auto', 'Habitation', 'Santé', 'Vie', 'Épargne']
+          - name: prime_mensuelle
+            description: "Prime mensuelle en EUR"
+      
+      - name: sinistres
+        description: "Sinistres déclarés"
+        columns:
+          - name: sinistre_id
+            description: "Identifiant unique du sinistre"
+            tests:
+              - unique
+              - not_null
+          - name: contrat_id
+            description: "Référence au contrat"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'contrats')
+                  field: contrat_id
+          - name: montant_declare
+            description: "Montant déclaré du sinistre"
+          - name: montant_indemnise
+            description: "Montant indemnisé"
+      
+      - name: primes
+        description: "Échéances et paiements de primes"
+        columns:
+          - name: prime_id
+            description: "Identifiant unique de l'échéance"
+            tests:
+              - unique
+              - not_null
+          - name: contrat_id
+            description: "Référence au contrat"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'contrats')
+                  field: contrat_id
+          - name: statut_paiement
+            description: "Statut du paiement"
+            tests:
+              - accepted_values:
+                  values: ['Payé', 'Impayé', 'Retard']
